@@ -1,0 +1,60 @@
+{
+    "mappings": {
+        "_default_": {
+            "properties": {
+                "institution_id": {
+                    "type": "integer"
+                },
+                "institution_name": {
+                    "type": "string",
+                    "fielddata": true
+                },
+                "deglevl_code": {
+                    "type": "integer"
+                },
+                "deglevel": {
+                    "type": "string",
+                    "fielddata": true
+                },
+                "degcip_4dig": {
+                    "type": "integer"
+                },
+                "ciptitle": {
+                    "type": "string",
+                    "fields": {
+                        "raw" : {
+                        "type": "string",
+                        "index": "not_analyzed"
+                        }
+                }
+                },
+                "grad_cohort": {
+                  "type": "double"
+                },
+                "grad_cohort_label": {
+                    "type": "string",
+                    "fielddata": true
+                },
+                "year_postgrad": {
+                    "type": "integer"
+                },
+                "p25_earnings": {
+                    "type": "integer"
+                },
+                "p50_earnings": {
+                    "type": "integer"
+                },
+                "p75_earnings": {
+                    "type": "integer"
+                },
+                "system": {
+                    "type": "string",
+                    "fielddata": true
+                },
+                "cellcount": {
+                    "type": "integer"
+                }
+            }
+        }
+    }
+}
