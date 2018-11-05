@@ -1,0 +1,527 @@
+---
+title: "Elasticsearch and R"
+output: 
+  html_document:
+    toc: True
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+if(packageVersion("knitr") < 1.20){
+    stop("Please update the package 'knitr' before you run this script. You'll need at least 1.20 for this.")
+}
+
+if(packageVersion("uptasticsearch") < 0.3){
+    stop("Please update the package 'uptasticsearch' before you run this script. You'll need at least 0.3.0 for this.")
+}
+
+```
+
+## Introduction
+
+Many of us who work in the data science space struggle with the issues of storing data. How should we organize large datasets so that they are easily navigable, downloadable, and usable from our preferred analytics workspace? Elasticsearch is a great option for people with very large data that needs to be searchable fast, and has the advantage of being very accessible to start small with and combine with the analytics tool you prefer. 
+
+In this notebook, I'll walk you through the process of creating, populating, and using an Elasticsearch database using exclusively R code. My company, Uptake, created and maintains an open source package on CRAN called `uptasticsearch` that is designed to make querying data from Elasticsearch painless for a wide range of users. I'll also use a package called `elastic` here, which includes some other functionality useful for populating the database as well. 
+
+Before we begin, a note:
+
+* The data being used in this tutorial is from [data.world](data.world), and comes out of the hard work done by Annie Millerbernd of the San Antonio Express-News. You can learn more about it and see the original dataset here: https://data.world/amillerbernd/ut-system-post-grad-earnings
+
+
+### Prerequisites
+
+* Experience with the specific topic: None required  
+* Professional experience: None required  
+* Familiarity with R language recommended  
+* Familiarity with some form of data storage recommended  
+* R packages required: `uptasticsearch`, `feather`, `DT`, and `elastic`
+* Software required: `Docker` (https://www.docker.com/community-edition) and `RStudio`.
+
+
+***
+
+## Environment
+
+As will be familiar to many R users, we need to begin by getting the packages that our project requires loaded. In this case, `uptasticsearch`, `feather`, and `elastic` are needed, and you can acquire these using `install.packages()`. I am also employing the package `DT` just to make our data samples render attractively in HTML.
+
+It's also important to make sure you are in the correct working directory, so that our data and other materials can be easily found. 
+
+```{r}
+library(uptasticsearch)
+library(feather)
+library(elastic)
+library(DT)
+
+getwd()
+
+# If you aren't in the source folder, make sure you get there.
+```
+
+
+***
+
+## Data
+
+As I mentioned above, the data we are using comes from the San Antonio Express-News. This dataset examines the earnings of graduates of the University of Texas system according to several metrics and categorizations, including campus, degree level, and major. 
+
+Here we load the data into R, and take a quick look at it. You can see that we have cohort level summaries (not individual level data) but they are pretty granular. When earnings are not listed, the data is likely to have too few individuals. When only a small number (less than 30 in the case of this data) people are in a group, it is best practice to redact sensitive data like earnings information for the purposes of privacy. `Cellcount` tells you the number of individuals in the grouping, and -1 indicates no one is being shown for that group because it is less than 30 individuals.
+
+
+```{r}
+dataset <- feather::read_feather("supporting_materials/ut_grad_earn.feather")
+
+DT::datatable(tail(dataset)
+              ,options = list(
+                  scrollX = TRUE,
+                  searching = FALSE,
+                  pageLength = 5))
+
+names(dataset)
+```
+
+***
+
+## Database Preparation
+
+At this point, we are ready to actually build the Elasticsearch database that we will be pushing this data to. However, we need to pay attention to a few things first when we are setting the database up.
+
+### Elasticsearch
+Elasticsearch is a system of storing and retrieving data that is optimized for searching, rather than other methods of interaction. In Elasticsearch, what you might think of as a single database table will actually be an object called an index, which contains a self contained pool of data. An index is not tabular - don't think of this like a relational database or SQL! Elasticsearch is structured more like nested JSON documents. (For an R user, this might remind you of nested lists.) The JSON document contains your data and its traits, as you'll see a little later.
+
+There are some excellent tutorials out there that will teach you about the theoretical concepts behind a database like this, and whole classes you could take if you are really interested in the deep dive, so for our purposes I won't go into a ton of that detail, but here are a few links to get you started. 
+
+#### For Further Reference
+
+* [The Official Elasticsearch Reference](https://www.elastic.co/guide/en/elasticsearch/reference/5.5/index.html) You might find this reference a bit dense, but for figuring out what your query is missing, or how to specify a very particular criteria, it's invaluable.  
+* [Elastic.co Practical Introduction](https://www.elastic.co/blog/a-practical-introduction-to-elasticsearch) This documentation gives you a bit more insight on how Elasticsearch works under the hood, without getting too in the weeds. It's particularly useful for interpreting responses from your database.  
+* [Video on the architecture](https://www.youtube.com/watch?v=YsYUgZu9-Y4) Understanding how distributed storage and "shards" work is helpful for understanding why you might want to use Elasticsearch instead of a relational database option. 
+
+Much of the real advantage of using Elasticsearch over some other kind of data storage is achieved when you start working with really "big" data - for this tutorial, and for most non-enterprise users, the amount of data we are using doesn't require the power that Elasticsearch has to offer. But that doesn't mean it's not a cool and useful way to store your data! 
+
+(Be advised: there are some other good resources out there, but many them are trying to sell you something, so be on your guard. There is no reason you should have to pay anybody to have your own Elasticsearch database.)
+
+
+***
+
+### Mapping
+One thing I do want to spend a little more time discussing is mappings. This is honestly not all that different on the surface level from any other kind of database; you need to tell the database what sort of data to expect, what fields and types it will be receiving. To do this in Elasticsearch, you'll construct a JSON file. I have already built that for this tutorial, and packaged it with the rest of these documents.
+
+I'm not going to display the entire mapping here, but just give you a few snippets to illustrate what it looks like.
+
+
+```{r, eval=FALSE}
+'{
+    "mappings": {
+        "_default_": {
+            "properties": {
+                "institution_id": {
+                    "type": "integer"
+                },
+                "institution_name": {
+                    "type": "string",
+                    "fielddata": true
+                },
+                "deglevl_code": {
+                    "type": "integer"
+                },
+                "deglevel": {
+                    "type": "string",
+                    "fielddata": true
+                },
+                "degcip_4dig": {
+                    "type": "integer"
+                },
+                "ciptitle": {
+                    "type": "string",
+                    "fields": {
+                        "raw" : {
+                        "type": "string",
+                        "index": "not_analyzed"
+                        }
+                }
+                },'
+```
+
+                
+For users with familiarity with database fields, this likely seems intuitive. The field is named, and given a type. However, for some, `fielddata` is shown- what's that? It is informing the database that this is a field it should allow querying on later. This is only really needed for string or character fields - if you don't plan to query on a field, you can leave this out, and the database will not have to parse all that data, saving time and processing energy. 
+
+Let's also take a look at that `ciptitle` field. We have a lot more specifications in place there! In short, these specifications allow us to use the major for searching by name. 
+
+
+***
+
+## Starting Up
+
+Now, with our mappings in order, we can get our database running! To make all this less complicated for you, I have set up the script that creates the local Elasticsearch database and applies the mapping we want. This needs to be run from the terminal, but in R we can use the `system()` call to do that right here in our notebook.
+
+This will take a moment, so wait until the next code chunk is fully complete before you move on.
+
+(The `5.5` at the end of the call is telling our database to use Elasticsearch version 5.5.)
+
+
+```{r}
+system("./supporting_materials/setup_texas.sh 5.5")
+
+```
+
+You probably noticed that the `system` call above didn't return anything - this is normal! Once the chunk is done you're all set. The database is running in the background in docker.
+
+```{r}
+# Find out what fields our index has available, and types
+uptasticsearch::get_fields(es_host = "http://localhost:9200", es_indices = "utexas")
+
+```
+
+### Load Data
+
+As you can see, that looks like the mappings and types we asked for. Notice `ciptitle.raw` - this is what is produced by that special mapping I applied to `ciptitle` to make it searchable in the way we want. But, this database is empty. The next job is to load our data in - we will format the dataframe with the `elastic` package and then pass it with a system call.
+
+```{r}
+elastic::docs_bulk_prep(dataset, index = "utexas", type = "data", path = "ut_data.json", chunk_size = 100000)
+
+system("curl -X POST 'http://localhost:9200/utexas/_bulk' -H 'Content-Type: application/json' --data-binary @ut_data.json")
+```
+
+Notice how these preparation and upload commands are working with `ut_data.json`. What happened to our feather format? You'll remember from earlier how we discussed the fact that Elasticsearch is essentially a set of nested JSON files - in order to push data to an Elasticsearch database, it must be in JSON format.
+
+Let's look at our database again and see if anything changed.
+
+```{r}
+uptasticsearch::get_fields(es_host = "http://localhost:9200", es_indices = "utexas")
+```
+
+Now we have the type `data` as well as the type `_default_`, which is what we want. Our `data` rows have the correct types that we assigned in the beginning in our mapping. Our data is ready to go!
+
+***
+
+## Querying
+
+A database is only useful if we can get out our data and use it when we need it. With `uptasticsearch`, you have very robust and flexible tools for querying your Elasticsearch database.
+
+To start, we will query all fields, unfiltered, and get 10 records. This is something we can do because this dataset is small- beware of doing this for a dataset with many, many fields!
+
+(Note: records are known as "documents" in the Elasticsearch parlance- not "rows".)
+
+```{r}
+query_string <- '{"query": {"match_all":{}}}'
+
+DT::datatable(
+  uptasticsearch::es_search(
+  es_host = "http://localhost:9200"
+  , es_index = "utexas"
+  , query_body = query_string
+  , max_hits = 10
+  , size = 10)
+              , options = list(
+                  scrollX = TRUE,
+                  searching = FALSE,
+                  pageLength = 5))
+
+```
+
+
+Let's talk a little about the anatomy of the query and function calls above. You may be able to tell that we're using JSON styling for the query, with all the curly braces this implies. Querying Elasticsearch can be very complex, but it's very powerful. As we continue here, I'll give you some more useful examples of how to make different types of query, and there are lots of resources out there for writing more complex queries if you need them.
+
+What are all those options in the `es_search` function call? That is a great question for the help docs!
+
+```{r}
+?uptasticsearch::es_search
+```
+
+When you run this command in your own console, you'll see an assortment of handy information. 
+
+![](supporting_materials/help_docs.png)
+
+`Uptasticsearch` has excellent and robust documentation that will help you learn to use the tools - and if you have other questions, visit us on github and ask for help!
+
+***
+
+### Filtering and Criteria
+
+Now we will begin to filter our data, using the `institution_id` field. What do the records look like from University of Texas Rio Grande Valley campus? We can see from above that the ID for that campus is 3599. We'll also limit the number of records, to be responsible.
+
+```{r}
+query_string <- '{"query": {"match": {"institution_id": "3599"}}}'
+
+DT::datatable(
+uptasticsearch::es_search(
+  es_host = "http://localhost:9200"
+  , es_index = "utexas"
+  , query_body = query_string
+  , max_hits = 10
+  , size = 10)
+              ,options = list(
+                  scrollX = TRUE,
+                  searching = FALSE,
+                  pageLength = 5))
+
+```
+
+This shows us just records of cohorts' post-graduate earnings if they graduated from the Rio Grande Valley campus.
+
+### By Major
+
+There are lots of ways you might want to filter your data. One is by using text fields. In this case, we're going to take a look at cohorts who majored in "Area Studies". Because of the way we set the field parameters for `ciptitle.raw` earlier in this tutorial, we have the ability to search for that text string below and it will return precise matches.
+
+```{r}
+
+# Look for a major - set up explanation of text field stuff
+query_string <- '{"query": {"match": {"ciptitle.raw": "AREA STUDIES"}}}'
+
+DT::datatable(uptasticsearch::es_search(
+  es_host = "http://localhost:9200"
+  , es_index = "utexas" 
+  , query_body = query_string
+  , max_hits = 10
+  , size = 10)
+              ,options = list(
+                  scrollX = TRUE,
+                  searching = FALSE,
+                  pageLength = 5))
+
+```
+
+
+### Major and Population Size
+
+Now that you're familiar with a few types of filter, we will put multiple filters together. Below, in the query syntax, you'll notice that we use two distinct `must` clauses. This is a tricky part of querying Elasticsearch that you will want to remember. It handles different kinds of search in special ways. You can't string together many different kinds of filters in one big `must` - for example, a range and a match. You have to break them apart. But, you CAN use more than one match type of search in the same `must` - you'll see that below.  
+
+```{r}
+query_string <- '{
+  "query": {
+    "bool" : {
+      "must" : {
+        "match": { "ciptitle.raw": "AREA STUDIES" }
+      },
+      "must" : {
+        "range" : {
+          "cellcount" : { "gte" : 0 }
+        }
+      }
+    }
+  }
+}'
+
+
+DT::datatable(uptasticsearch::es_search(
+  es_host = "http://localhost:9200"
+  , es_index = "utexas" 
+  , query_body = query_string
+  , max_hits = 10
+  , size = 10)
+              ,options = list(
+                  scrollX = TRUE,
+                  searching = FALSE,
+                  pageLength = 5))
+
+
+```
+
+
+### Major, Population Size, and Campus
+
+Now we'll add complexity and make this query three criteria. We are looking for just cohorts who majored in "Communications and Media Studies" at the Rio Grande Valley campus, and omitting records where the values will be NA due to the small number of students. Notice we have two `must` clauses - one for our matches, and one for the range search. If you find it confusing to put more than one match in the same `must`, you can also just choose to make a separate `must` clause for every search term and it will also work fine.
+
+(Remember, to do a clause with multiple matches, we have to enclose all our match arguments in brackets.)
+
+```{r}
+query_string <- '{
+  "query": {
+    "bool" : {
+      "must" : [
+        {"match": { "ciptitle.raw": "COMMUNICATION AND MEDIA STUDIES" }},
+        {"match": { "institution_id": "3599" }}
+      ], 
+      "must" : {
+        "range" : {
+          "cellcount" : { "gte" : 0 }
+        }
+      }
+    }
+  }
+}'
+
+
+DT::datatable(uptasticsearch::es_search(
+  es_host = "http://localhost:9200"
+  , es_index = "utexas" 
+  , query_body = query_string
+  , max_hits = 10
+  , size = 10)
+              ,options = list(
+                  scrollX = TRUE,
+                  searching = FALSE,
+                  pageLength = 5))
+
+```
+
+
+
+## Summarizing with Queries
+
+Finally, let's talk a little about the summary capabilities of Elasticsearch. Users of SQL will be familiar with this concept - using the query space to not only extract records, but to group them and then give back details about the groups. Elasticsearch can do this too! The query below will look for our cohorts of graduates from the Rio Grande Valley campus again, and summarize them according to their major.
+
+```{r}
+
+# Summarize with queries- finish explaining the .raw stuff
+
+query_string <- '{
+    "query": 
+        {"match": {"institution_id": "3599" }}
+    , "aggs" : { 
+        "common_majors" : { 
+            "terms" : { 
+              "field" : "ciptitle.raw"
+            }
+        }
+    }
+}'
+
+DT::datatable(uptasticsearch::es_search(
+  es_host = "http://localhost:9200"
+  , es_index = "utexas" 
+  , query_body = query_string)
+              , options = list(
+                  scrollX = TRUE,
+                  searching = FALSE,
+                  pageLength = 5))
+
+```
+
+
+### Summarize Earnings by Major with Filters
+
+But you might encounter a case where you don't want to just count the cohorts, but want to measure other attributes of the group. Let's do this with an average of the median earnings for those graduates, again by major.
+
+```{r}
+
+# Summarize by the earnings amount per major
+
+query_string <- '{
+    "query": { "match": { "institution_id": "3599" } },
+    "aggs": {
+          "group_by_major": {
+            "terms": {
+              "field": "ciptitle.raw"
+        },
+    "aggs": {
+      "average_50th_pctile": {
+        "avg": {
+          "field": "p50_earnings"
+        }
+      }
+    }
+  }
+}}'
+
+DT::datatable(uptasticsearch::es_search(
+  es_host = "http://localhost:9200"
+  , es_index = "utexas" 
+  , query_body = query_string)
+              ,options = list(
+                  scrollX = TRUE,
+                  searching = FALSE,
+                  pageLength = 5))
+
+```
+
+### Omit Redacted Groups
+
+Now, we'll combine this with what we did on filtering above. We can filter by the campus again, and we can also now add the filter that omits groups where the sample is so small they are redacted anyway. You'll notice a difference in the summary values! Always watch out for those NA records that might be hiding in your dataset.
+
+
+```{r}
+query_string <- '{
+    "query": { "bool" : {
+      "must" : {
+        "match": { "institution_id": "3599" }
+      },
+      "must" : {
+        "range" : {
+          "cellcount" : { "gte" : 0 }
+        }
+      }
+    }},
+    "aggs": {
+          "group_by_major": {
+            "terms": {
+              "field": "ciptitle.raw"
+        },
+    
+    "aggs": {
+      "average_50th_pctile": {
+        "avg": {
+          "field": "p50_earnings"
+        }
+      }
+    }
+  }
+}}'
+
+DT::datatable(uptasticsearch::es_search(
+  es_host = "http://localhost:9200"
+  , es_index = "utexas" 
+  , query_body = query_string)
+              ,options = list(
+                  scrollX = TRUE,
+                  searching = FALSE,
+                  pageLength = 5))
+
+
+```
+
+
+
+### Sort the Results
+
+The last functionality we're going to look at is the ability to sort results of your queries. This works with summary data or with individual records being returned. Here we are sorting by the summary value, so we can see which majors had the highest median earnings for their graduates.
+
+```{r}
+query_string <- '{"query": 
+    { "match": { "institution_id": "3599" } }
+    , "aggs": {
+        "group_by_major": {
+            "terms": {
+                "field": "ciptitle.raw",
+                "order": {"average_50th_pctile": "desc"} 
+                },
+                "aggs": {
+                    "average_50th_pctile": {
+                        "avg": {
+                            "field": "p50_earnings"
+                        }
+                    }
+                }
+            }
+        }
+    }'
+
+DT::datatable(uptasticsearch::es_search(
+  es_host = "http://localhost:9200"
+  , es_index = "utexas" 
+  , query_body = query_string)
+              ,options = list(
+                  scrollX = TRUE,
+                  searching = FALSE,
+                  pageLength = 5))
+```
+
+***
+
+## Cleaning Up
+
+Now we can shut down our database, remove temporary files, and clean up our workspace. I have provided a script that takes care of this for you, but you can open it up and see how it works if you like. Remember, the database will cease to exist when you run this script, so be careful!
+
+
+```{r}
+system("./supporting_materials/cleanup_local.sh")
+```
+
+
+Thanks for taking the time to work through this tutorial. I hope that you will find it helpful when you use your own Elasticsearch databases with R in the future!
+
+To learn more about Uptake, please visit us at https://www.uptake.com/. You can also find me at www.stephaniekirmer.com, stephanie.kirmer@uptake.com, or @data_stephanie on Twitter.
+
+
+
