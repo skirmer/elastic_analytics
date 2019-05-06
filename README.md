@@ -4,19 +4,28 @@ Hello! This repo is home for all the supplementary materials to go with my prese
 
 
 ## Startup/Shutdown
-After cloning this repo, if you have Docker installed and running, you can spin up your own Elasticsearch database on your local machine. Run the following at command line:
+After cloning this repo, if you have Docker installed and running, you can spin up your own Elasticsearch database on your local machine. Move into the top level of this repository after you clone it, and run the following at command line:
 
 ```
 ./supporting_materials/setup_texas.sh 5.5
 ```
 
-(This will use Elasticsearch version 5.5.) When you are done with whatever work you are doing, close down the database with this:
+(This will use Elasticsearch version 5.5.) Look inside that file for more detailed commentary on what the bash script is doing.
+For the purposes of my demo, you can populate your database quickly using this command:
+
+```
+curl -X POST 'http://localhost:9200/utexas/_bulk' -H 'Content-Type: application/json' --data-binary @supporting_materials/ut_data.json
+```
+
+Note that if you want to spin up an elasticsearch database for your own data, you'll need to edit the `setup_texas.sh` file to include a JSON schema that is appropriate for your data. Once you've gone through this tutorial, I hope it will not be too complicated to learn to do that, but that's beyond the purview of this single workshop.
+
+When you are done with whatever work you are doing, close down the database with this:
 
 ```
 ./supporting_materials/cleanup_local.sh
 ```
 
-(Bash files (.sh) are executable files for Linux/Unix that will run commands. These will work on any Mac or Linux machines. If you are using Windows, you may need to do different things.)
+(Bash files (.sh) are executable files for Linux/Unix that will run commands. These will work on Mac or Linux machines. If you are using Windows, you may need to do different things.)
 
 ***
 

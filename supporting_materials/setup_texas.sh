@@ -4,14 +4,18 @@ set -e
 
 echo "collecting arguments..."
 
-DEFAULT_VERSION="6.2"
-MAJOR_VERSION=${1:-DEFAULT_VERSION}
+DEFAULT_VERSION=6.2
+MAJOR_VERSION=${1:-$DEFAULT_VERSION}
 echo "major version: $MAJOR_VERSION"
 
 WDIR=$(pwd)/supporting_materials
 TESTDIR=${WDIR}/sandbox
-MAPPING_FILE2=${WDIR}/data_mapping.json
-ES_HOST="127.0.0.1"
+MAPPING_FILE2=${WDIR}/data_mapping.json # This is how the docker container knows where to find the mappings/schema for data
+ES_HOST="127.0.0.1" # We are just making a local database, so this is fine
+
+# Docker will go find and install the correct version of Elasticsearch you requested
+# This tutorial requests 5.5
+# If you make no request, the version will be 6.2 or whatever is specified above
 
 echo "Starting up Elasticsearch..."
 
@@ -75,29 +79,34 @@ esac
 
 echo "Elasticsearch v${MAJOR_VERSION} is now running on localhost:9200"
 
+
 echo "Setting up local testing environment"
 
 # Creating testing directory
 mkdir -p ${TESTDIR}
 
-# Get data
+# Now Elasticsearch is checking for the JSON that tells it what data mapping to use, if any
+# Then it will copy that file into the directory it has created.
 cp ${MAPPING_FILE2} ${TESTDIR}/data_mapping.json
 cd ${TESTDIR}
 
-# give the cluster a chance
+# give the cluster a chance to load up and get running
 sleep 25
      
-# Create utexas index and utexas mapping
+# Create utexas index and utexas mapping - it takes the JSON schema file it moved and uses it to generate the elasticsearch database structure.
+# Note that this also names our database - utexas. This can be any name you like, as long as you remember and replace utexas throughout your code.
 curl -X PUT "http://${ES_HOST}:9200/utexas" \
      -H 'Content-Type: application/json' \
      -d @data_mapping.json
 
-# Refresh all indices
+# Refresh all indices, make sure that it's using the schema you gave it
 curl -X POST "http://${ES_HOST}:9200/_refresh"
 
-# Check that we got the mappings right
+# Check that we got the mappings right- this is going to return a lot of text. 
+# You can remove this if you choose. It's just to make sure you can see that things are as expected.
 curl -X GET "http://${ES_HOST}:9200/utexas/_mapping"
 
+# We move back up to the top directory once all this work is completed.
 cd ${WDIR}
 
 echo ""
