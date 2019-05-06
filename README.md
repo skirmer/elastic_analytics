@@ -1,6 +1,6 @@
 # Elasticsearch for Analytics Workflows
 
-Hello! This repo is home for all the supplementary materials to go with my presentations on Elasticsearch with R and/or Python. If you have questions, you can ask me on Twitter- @data_stephanie.
+Hello! This repo is home for all the supplementary materials to go with my presentations on Elasticsearch with R and/or Python. If you have questions, you can ask me on Twitter- `@data_stephanie`.
 
 
 ## Startup/Shutdown
