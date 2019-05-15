@@ -6,25 +6,24 @@
                     "type": "integer"
                 },
                 "institution_name": {
-                    "type": "string",
+                    "type": "text",
                     "fielddata": true
                 },
                 "deglevl_code": {
                     "type": "integer"
                 },
                 "deglevel": {
-                    "type": "string",
+                    "type": "text",
                     "fielddata": true
                 },
                 "degcip_4dig": {
                     "type": "integer"
                 },
                 "ciptitle": {
-                    "type": "string",
+                    "type": "text",
                     "fields": {
                         "raw" : {
-                        "type": "string",
-                        "index": "not_analyzed"
+                        "type": "keyword"
                         }
                 }
                 },
@@ -32,7 +31,7 @@
                   "type": "double"
                 },
                 "grad_cohort_label": {
-                    "type": "string",
+                    "type": "text",
                     "fielddata": true
                 },
                 "year_postgrad": {
@@ -48,7 +47,7 @@
                     "type": "integer"
                 },
                 "system": {
-                    "type": "string",
+                    "type": "text",
                     "fielddata": true
                 },
                 "cellcount": {
