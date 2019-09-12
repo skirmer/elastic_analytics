@@ -2,7 +2,7 @@
 
 Hello! This repo is home for all the supplementary materials to go with my presentations on Elasticsearch with R and/or Python. If you have questions, you can ask me on Twitter- `@data_stephanie`.
 
-**If you are joining me for ODSC West 2019, please follow the advance instructions that the organizers are providing you** - [I have also made a PDF copy of the instructions available here](odscwest2019_advance_instructions.pdf).
+**If you are joining me for ODSC West 2019, please follow the advance instructions that the organizers are providing you** - [I have also made a copy of the instructions available here](odsc_instructions.md).
 
 
 ## Startup/Shutdown
