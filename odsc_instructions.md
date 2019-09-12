@@ -7,10 +7,9 @@ Before the session, users should:
 
 1. Download and install Docker. This requires visiting hub.docker.com, creating a user account, and downloading the free personal use software that is correct for your operating system. You’re welcome to do the accompanying tutorial but it is not necessary for this training.  
 2. Clone the github repository: https://github.com/skirmer/elastic_analytics  
-3a. If you use R, download the libraries elastic and uptasticsearch. (CRAN)  
-3b. If you use Python, download the libraries elasticsearch-py and uptasticsearch. (PYPI)  
-
-4. Test that your system is correctly set up:  
+3. If you use R, download the libraries elastic and uptasticsearch. (CRAN)  
+4. If you use Python, download the libraries elasticsearch-py and uptasticsearch. (PYPI)  
+5. Test that your system is correctly set up:  
 
 To confirm that your installation is working, AND to check that Elasticsearch is downloaded to your system ahead of time, follow these steps (also found on the github readme).
 
