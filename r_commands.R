@@ -4,12 +4,14 @@ uptasticsearch::get_fields(es_host = "http://localhost:9200", es_indices = "utex
 
 query_string <- '{"query": {"match_all":{}}}'
 
+# Uptasticsearch
 test_up <- uptasticsearch::es_search(
   es_host = "http://localhost:9200"
   , es_index = "utexas"
   , query_body = query_string
   , size = 10)
 
+# Elastic
 conn = elastic::connect(es_host = "http://localhost:9200")
 
 test_e <- elastic::Search(index = "utexas" 
@@ -18,8 +20,10 @@ test_e <- elastic::Search(index = "utexas"
                           , raw = TRUE
                           , conn = conn)
 
-test_e2 <- jsonlite::fromJSON(test_e)$hits$hits
+jsonlite::fromJSON(test_e)$hits$hits
 
+
+# Elastic without query language
 test_e <- elastic::Search(
   index = "utexas"
   , q = "grad_cohort:*"
@@ -31,7 +35,6 @@ jsonlite::fromJSON(test_e)
 
 
 # Additional Queries
-
 match_one = '{ 
   "query": { "match": { "ciptitle.raw": "COMPUTER SCIENCE"} }
 }'

@@ -10,34 +10,35 @@ from pandas.io.json import json_normalize
 query_dict = {"query": {"match_all": {}}}
 query_string = '{"query": {"match_all": {}}}'
 
-
+# Uptasticsearch
 uptasticsearch.es_search(
    es_host="http://localhost:9200",
    query_body=query_string,
-   es_index="utexas"
+   es_index="utexas",
+   max_hits = 10
 )
 
-
+# Elasticsearch-py
 es = Elasticsearch(['http://localhost:9200'])
 res = es.search(
    index="utexas", 
-   body= query_dict
+   body= query_dict,
+   size = 10
 )
 
-res['hits']['hits']
+#res['hits']['hits']
 json_normalize(res['hits']['hits'])
 
-
+# Elasticsearch-dsl
 res2 = Search(using = es).query("match", _index = 'utexas').execute()
-res2.to_dict()['hits']['hits']
+#res2.to_dict()['hits']['hits']
 json_normalize(res2.to_dict()['hits']['hits'])
 
 
 # Additional Queries
-
-match_one = """{ 
+match_one = { 
   "query": { "match": { "ciptitle.raw": "COMPUTER SCIENCE"} }
-}"""
+}
 
 match_one_greater_one = """{  
 "query": 
