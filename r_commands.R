@@ -86,15 +86,3 @@ summarize_one = '{
 		}
 	}
 }'
-
-
-test_e <- elastic::Search(index = "utexas" 
-                          , body = match_one
-                          , size = 10
-                          , raw = TRUE
-                          , conn = conn)
-
-#### Reticulate ####
-library(reticulate)
-py_config()
-reticulate::use_python('/usr/local/bin/python3')
