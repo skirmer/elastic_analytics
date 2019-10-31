@@ -22,7 +22,7 @@ uptasticsearch.es_search(
 es = Elasticsearch(['http://localhost:9200'])
 res = es.search(
    index="utexas", 
-   body= query_dict,
+   body= summarize_one,
    size = 10
 )
 
@@ -36,9 +36,9 @@ json_normalize(res2.to_dict()['hits']['hits'])
 
 
 # Additional Queries
-match_one = { 
+match_one = """{ 
   "query": { "match": { "ciptitle.raw": "COMPUTER SCIENCE"} }
-}
+}"""
 
 match_one_greater_one = """{  
 "query": 
@@ -90,3 +90,5 @@ summarize_one = """{
 		}
 	}
 }"""
+
+json_normalize(res['aggregations']['common_majors']['buckets'])

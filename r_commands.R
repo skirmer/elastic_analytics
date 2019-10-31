@@ -9,13 +9,13 @@ test_up <- uptasticsearch::es_search(
   es_host = "http://localhost:9200"
   , es_index = "utexas"
   , query_body = query_string
-  , size = 10)
+  , max_hits = 10)
 
 # Elastic
 conn = elastic::connect(es_host = "http://localhost:9200")
 
 test_e <- elastic::Search(index = "utexas" 
-                          , body = query_string
+                          , body = summarize_one
                           , size = 10
                           , raw = TRUE
                           , conn = conn)
@@ -89,3 +89,5 @@ summarize_one = '{
 		}
 	}
 }'
+
+jsonlite::fromJSON(test_e)$aggregations$common_majors$buckets
