@@ -15,13 +15,13 @@ test_up <- uptasticsearch::es_search(
 conn = elastic::connect(es_host = "http://localhost:9200")
 
 test_e <- elastic::Search(index = "utexas" 
-                          , body = summarize_one
+                          , body = query_string
                           , size = 10
                           , raw = TRUE
                           , conn = conn)
 
-jsonlite::fromJSON(test_e)$hits$hits
 
+jsonlite::fromJSON(test_e)$hits$hits
 
 # Elastic without query language
 test_e <- elastic::Search(
