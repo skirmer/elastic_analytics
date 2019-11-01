@@ -22,7 +22,7 @@ uptasticsearch.es_search(
 es = Elasticsearch(['http://localhost:9200'])
 res = es.search(
    index="utexas", 
-   body= summarize_one,
+   body= query_dict,
    size = 10
 )
 
